@@ -10,7 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const init = async () => {
     const result = await chrome.storage.local.get(['enabled', 'blockedDomains']);
     enabled = result.enabled ?? true;
-    blockedDomains = result.blockedDomains ?? [];
+    blockedDomains = (result.blockedDomains ?? [])
+      .map(d => d.replace(/^www\./, '').replace(/\/+$/, ''))
+      .filter((d, i, arr) => arr.indexOf(d) === i); // Remove duplicates
     toggle.checked = enabled;
     renderBlocklist();
   };
@@ -21,16 +23,19 @@ document.addEventListener('DOMContentLoaded', () => {
       .toLowerCase()
       .replace(/^www\./, '')
       .replace(/\/+$/, '');
-
+  
+    // Validate and check for duplicates
     if (!domain || !isValidDomain(domain)) return;
-
-    if (!blockedDomains.includes(domain)) {
-      blockedDomains = [...blockedDomains, domain];
+    if (blockedDomains.includes(domain)) {
       domainInput.value = '';
-      await chrome.storage.local.set({ blockedDomains });
-      renderBlocklist();
-      if (enabled) chrome.runtime.sendMessage({ action: 'forceUpdate' });
+      return;
     }
+  
+    // Proceed to add
+    blockedDomains = [...blockedDomains, domain];
+    await chrome.storage.local.set({ blockedDomains });
+    renderBlocklist();
+    if (enabled) chrome.runtime.sendMessage({ action: 'forceUpdate' });
   };
 
   const handleRemoveDomain = async (domain) => {

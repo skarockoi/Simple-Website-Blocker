@@ -2,10 +2,13 @@ let enabled = true;
 let blockedDomains = [];
 
 const generateRuleId = (domain) => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(domain);
   let hash = 0;
-  for (let i = 0; i < domain.length; i++) {
-    hash = (hash << 5) - hash + domain.charCodeAt(i);
-    hash |= 0;
+  
+  for (const byte of data) {
+    hash = (hash << 5) - hash + byte;
+    hash |= 0; // Ensure 32-bit integer
   }
   return Math.abs(hash % 2147483647);
 };
@@ -20,6 +23,8 @@ const updateRules = async () => {
   await loadState();
   const currentRules = await chrome.declarativeNetRequest.getDynamicRules();
   
+  console.log('Current Rule IDs:', currentRules.map(r => r.id));
+  
   if (enabled) {
     const newRules = blockedDomains.map(domain => ({
       id: generateRuleId(domain),
@@ -30,6 +35,8 @@ const updateRules = async () => {
         resourceTypes: ['main_frame', 'sub_frame', 'script', 'xmlhttprequest', 'media', 'websocket', 'other']
       }
     }));
+
+    console.log('New Rule IDs:', newRules.map(r => r.id));
 
     await chrome.declarativeNetRequest.updateDynamicRules({
       removeRuleIds: currentRules.map(rule => rule.id),
